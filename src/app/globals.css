@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fbf9f6;
+  --foreground: #1c1917;
+  --brand: #b45309;
+  --brand-dark: #92400e;
+  --accent: #0f766e;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0f0d0b;
+    --foreground: #f5f3f0;
+    --brand: #f59e0b;
+    --brand-dark: #fbbf24;
+    --accent: #2dd4bf;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+/* Continuous horizontal scroll for the sector-circles nav (SectorCircles.tsx)
+   — the track renders the sector list twice back-to-back and this animates
+   exactly one copy's width, so the loop is seamless. */
+@keyframes sector-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
