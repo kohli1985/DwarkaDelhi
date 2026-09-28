@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import type { Sector } from "@/lib/supabase/types";
 
 // Rotating ring gradients, cycled by index — purely decorative.
@@ -11,11 +12,12 @@ const RING_STYLES = [
 ];
 
 // Instagram-story-style circular sector nav. Each circle links straight to
-// /sector/[id]. Renders the sector list exactly once in a horizontally
-// scrollable row (overflow-x-auto) — previously this animated a duplicated
-// copy of the list via CSS marquee, but with the current sector count the
-// un-duplicated content doesn't overflow the viewport, so both copies were
-// visible at once instead of one being scrolled off-screen.
+// /sector/[id]. The track renders the sector list twice back-to-back and
+// continuously animates exactly one copy's width (see the sector-marquee
+// keyframes in globals.css), so the loop reads as seamless. Paused on
+// hover/focus so a visitor can actually read and click a circle instead of
+// chasing a moving target, and it falls back to a plain manually-scrollable
+// row (no animation) for prefers-reduced-motion.
 export default function SectorCircles({
   sectors,
   activeSectorId = null,
@@ -25,12 +27,18 @@ export default function SectorCircles({
 }) {
   if (sectors.length === 0) return null;
 
-  function circle(s: Sector, i: number) {
+  function circle(s: Sector, i: number, copy: "a" | "b") {
     const isActive = activeSectorId === s.id;
     return (
       <Link
-        key={s.id}
+        key={`${copy}-${s.id}`}
         href={`/sector/${s.id}`}
+        // Duplicated track is decorative scroll filler for anyone not using
+        // a screen reader — only the first copy needs to be announced, the
+        // second copy is hidden from assistive tech so sectors aren't read
+        // out twice.
+        aria-hidden={copy === "b" ? true : undefined}
+        tabIndex={copy === "b" ? -1 : undefined}
         className="flex shrink-0 flex-col items-center gap-2"
       >
         <span
@@ -49,14 +57,22 @@ export default function SectorCircles({
     );
   }
 
+  // Speed scales with how much content there is, so the per-circle pace
+  // stays roughly constant whether there are 10 sectors or 30.
+  const durationSeconds = Math.max(20, sectors.length * 2.5);
+
   return (
     <section className="bg-background py-10 sm:py-14">
       <p className="text-center text-sm font-semibold uppercase tracking-wide text-brand">
         Browse by sector
       </p>
-      <div className="mt-5 overflow-x-auto">
-        <div className="flex w-max gap-5 px-5 sm:gap-7 sm:px-8">
-          {sectors.map((s, i) => circle(s, i))}
+      <div className="group mt-5 overflow-x-auto">
+        <div
+          className="flex w-max animate-[sector-marquee_var(--sector-marquee-duration)_linear_infinite] gap-5 px-5 group-hover:[animation-play-state:paused] group-focus-within:[animation-play-state:paused] motion-reduce:animate-none sm:gap-7 sm:px-8"
+          style={{ "--sector-marquee-duration": `${durationSeconds}s` } as CSSProperties}
+        >
+          {sectors.map((s, i) => circle(s, i, "a"))}
+          {sectors.map((s, i) => circle(s, i, "b"))}
         </div>
       </div>
     </section>

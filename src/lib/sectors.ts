@@ -15,7 +15,11 @@ export async function getActiveSectors(
   // public site happens to be signed in as the admin (same browser/
   // cookies), the "authenticated users manage sectors" RLS policy would
   // otherwise let this query see inactive sectors too.
-  const { data, error } = await supabase.from("sectors").select("*").eq("is_active", true);
+  const { data, error } = await supabase
+    .from("sectors")
+    .select("*")
+    .eq("is_active", true)
+    .order("id", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as Sector[];
 }

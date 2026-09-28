@@ -36,3 +36,15 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* Continuous horizontal scroll for the sector-circles nav (SectorCircles.tsx)
+   — the track renders the sector list twice back-to-back and this animates
+   exactly one copy's width, so the loop is seamless. */
+@keyframes sector-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
