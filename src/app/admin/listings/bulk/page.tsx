@@ -6,6 +6,7 @@ import Papa from "papaparse";
 import { bulkCreateListings, type BulkRow, type BulkUploadResult } from "../../actions";
 import { listSectors } from "../../sectors/actions";
 import type { Sector } from "@/lib/supabase/types";
+import { formatPhone } from "@/lib/phone";
 
 const REQUIRED_COLUMNS = ["name", "category", "subcategory", "sector", "description"];
 
@@ -67,7 +68,7 @@ export default function BulkUploadPage() {
           description: r.description?.trim() ?? "",
           address: r.address?.trim() || undefined,
           landmark: r.landmark?.trim() || undefined,
-          phone: r.phone?.trim() || undefined,
+          phone: formatPhone(r.phone) ?? undefined,
           whatsapp: r.whatsapp?.trim() || undefined,
           website: r.website?.trim() || undefined,
           instagram: r.instagram?.trim() || undefined,

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Category, Listing, Sector } from "@/lib/supabase/types";
+import { formatPhone } from "@/lib/phone";
 
 type Props = {
   category: Category;
@@ -257,7 +258,7 @@ export default function CategoryListings({
                         <p className="mt-3 text-xs text-foreground/50">
                           {listing.address}
                           {listing.address && listing.phone && " · "}
-                          {listing.phone}
+                          {formatPhone(listing.phone)}
                         </p>
                       )}
                     </div>

@@ -120,9 +120,17 @@ export async function POST(request: Request) {
 
     if (error) throw new Error(error.message);
 
-    let rows = ((results as MatchListingsRow[]) ?? []).filter(
-      (r) => r.similarity >= MIN_SIMILARITY,
+    const allRows = (results as MatchListingsRow[]) ?? [];
+    // Similarity scores are never shown to visitors (see SearchExperience.tsx)
+    // but stay logged here — this is the only record of the raw distribution,
+    // useful for re-checking MIN_SIMILARITY against real traffic later.
+    console.log(
+      `search: "${query}" — ${allRows.length} candidate(s), similarity [${allRows
+        .map((r) => r.similarity.toFixed(2))
+        .join(", ")}], threshold ${MIN_SIMILARITY}`,
     );
+
+    let rows = allRows.filter((r) => r.similarity >= MIN_SIMILARITY);
 
     // When the query names (or the UI picked) a sector, and that sector plus
     // at least the listings' own sectors have coordinates, prefer the

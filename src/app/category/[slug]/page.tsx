@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CategoryListings from "@/components/CategoryListings";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveSectors } from "@/lib/sectors";
 import type { Category, Sector } from "@/lib/supabase/types";
 import { sortSectors } from "@/lib/supabase/types";
 
@@ -17,9 +18,9 @@ export default async function CategoryPage({
   const { sector, sub } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: category }, { data: sectorsData }] = await Promise.all([
+  const [{ data: category }, sectorsData] = await Promise.all([
     supabase.from("categories").select("*").eq("slug", slug).eq("level", 1).maybeSingle(),
-    supabase.from("sectors").select("*").eq("is_active", true),
+    getActiveSectors(supabase),
   ]);
 
   if (!category) notFound();
