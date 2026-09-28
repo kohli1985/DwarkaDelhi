@@ -36,6 +36,9 @@ export default function CategoryListings({
     initialSectorId !== null ? new Set([initialSectorId]) : new Set(),
   );
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  // Filters default collapsed on mobile (sm:hidden toggle below) — on
+  // desktop the sidebar is always visible regardless of this, via sm:block.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -125,61 +128,103 @@ export default function CategoryListings({
         </div>
 
         <div className="mt-8 flex flex-col gap-8 sm:flex-row sm:items-start">
-          {/* Filter rail — left on wider screens, stacked above results on mobile */}
+          {/* Filter rail — a sidebar on wider screens; on mobile it's
+              collapsed behind a "Filters" toggle by default instead of
+              pushing every result below a full-length checkbox list. */}
           <aside className="shrink-0 sm:sticky sm:top-8 sm:w-48 md:w-56">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-foreground/50">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((open) => !open)}
+              className="flex w-full items-center justify-between gap-2 rounded-lg border border-foreground/15 px-3.5 py-2.5 text-sm font-semibold text-foreground/80 sm:hidden"
+              aria-expanded={filtersOpen}
+            >
+              <span>
                 Filters
-              </p>
-              {activeFilterCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSubIds(new Set());
-                    setSectorIds(new Set());
-                  }}
-                  className="text-xs font-medium text-brand-dark hover:underline"
-                >
-                  Clear all
-                </button>
+                {activeFilterCount > 0 && ` (${activeFilterCount})`}
+              </span>
+              <svg
+                className={`h-4 w-4 shrink-0 text-foreground/50 transition-transform ${filtersOpen ? "rotate-180" : ""}`}
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M5.5 7.5L10 12l4.5-4.5"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+
+            <div className={`${filtersOpen ? "mt-3 block" : "hidden"} sm:mt-0 sm:block`}>
+              <div className="flex items-center justify-between">
+                <p className="hidden text-xs font-semibold uppercase tracking-wide text-foreground/50 sm:block">
+                  Filters
+                </p>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubIds(new Set());
+                      setSectorIds(new Set());
+                    }}
+                    className="text-xs font-medium text-brand-dark hover:underline"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
+
+              {subcategories.length > 0 && (
+                <div className="mt-4">
+                  <p className="mb-2 text-xs font-semibold text-foreground/40">
+                    Category {subIds.size > 0 && `(${subIds.size})`}
+                  </p>
+                  <div className="flex flex-col items-start gap-1">
+                    {subcategories.map((c) => (
+                      <FilterCheckbox
+                        key={c.id}
+                        label={c.name}
+                        checked={subIds.has(c.id)}
+                        onChange={() => toggleSub(c.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
               )}
+
+              {sectors.length > 0 && (
+                <div className="mt-6">
+                  <p className="mb-2 text-xs font-semibold text-foreground/40">
+                    Sector {sectorIds.size > 0 && `(${sectorIds.size})`}
+                  </p>
+                  <div className="flex flex-col items-start gap-1">
+                    {sectors.map((s) => (
+                      <FilterCheckbox
+                        key={s.id}
+                        label={s.name}
+                        checked={sectorIds.has(s.id)}
+                        onChange={() => toggleSector(s.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Explicit close, mobile only — the toggle button above
+                  scrolls out of view once the checkbox list is long, so
+                  relying on the visitor to scroll back up and tap it again
+                  isn't a reliable way to get back to the results. */}
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(false)}
+                className="mt-6 w-full rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white sm:hidden"
+              >
+                {loading ? "Show results" : `Show ${listings.length} result${listings.length === 1 ? "" : "s"}`}
+              </button>
             </div>
-
-            {subcategories.length > 0 && (
-              <div className="mt-4">
-                <p className="mb-2 text-xs font-semibold text-foreground/40">
-                  Category {subIds.size > 0 && `(${subIds.size})`}
-                </p>
-                <div className="flex flex-col items-start gap-1">
-                  {subcategories.map((c) => (
-                    <FilterCheckbox
-                      key={c.id}
-                      label={c.name}
-                      checked={subIds.has(c.id)}
-                      onChange={() => toggleSub(c.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {sectors.length > 0 && (
-              <div className="mt-6">
-                <p className="mb-2 text-xs font-semibold text-foreground/40">
-                  Sector {sectorIds.size > 0 && `(${sectorIds.size})`}
-                </p>
-                <div className="flex flex-col items-start gap-1">
-                  {sectors.map((s) => (
-                    <FilterCheckbox
-                      key={s.id}
-                      label={s.name}
-                      checked={sectorIds.has(s.id)}
-                      onChange={() => toggleSector(s.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
           </aside>
 
           {/* Results */}
@@ -227,11 +272,10 @@ export default function CategoryListings({
               <div className="grid gap-4 sm:grid-cols-2">
                 {listings.map((listing) => {
                   const listingCategory = subcategories.find((c) => c.id === listing.category_id);
-                  return (
-                    <div
-                      key={listing.id}
-                      className="rounded-xl border border-foreground/10 bg-foreground/[0.02] p-5"
-                    >
+                  const cardClassName =
+                    "block rounded-xl border border-foreground/10 bg-foreground/[0.02] p-5 transition-colors hover:border-brand/30";
+                  const cardContent = (
+                    <>
                       <div className="flex items-start justify-between gap-2">
                         <h4 className="font-semibold text-foreground">
                           {listing.name}
@@ -260,6 +304,25 @@ export default function CategoryListings({
                           {listing.phone}
                         </p>
                       )}
+                    </>
+                  );
+
+                  // Links to the listing's detail page when it has a slug —
+                  // a listing created before supabase/migrations/0009 might
+                  // not, until scripts/backfill-listing-slugs.mjs runs, so
+                  // the card falls back to a plain (unlinked) div rather
+                  // than link to a page that doesn't exist yet.
+                  return listing.slug ? (
+                    <Link
+                      key={listing.id}
+                      href={`/listing/${listing.slug}`}
+                      className={cardClassName}
+                    >
+                      {cardContent}
+                    </Link>
+                  ) : (
+                    <div key={listing.id} className={cardClassName}>
+                      {cardContent}
                     </div>
                   );
                 })}

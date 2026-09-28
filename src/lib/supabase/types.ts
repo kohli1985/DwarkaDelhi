@@ -1,7 +1,8 @@
 // Hand-written types matching supabase/migrations/0001_init.sql,
 // 0002_category_hierarchy.sql, 0003_sectors.sql,
-// 0004_contact_submissions.sql, 0005_sector_coordinates.sql and
-// 0007_apartments.sql and 0008_apartment_address.sql.
+// 0004_contact_submissions.sql, 0005_sector_coordinates.sql,
+// 0007_apartments.sql, 0008_apartment_address.sql, 0009_listing_slug.sql
+// and 0010_listing_click_events.sql.
 // If the schema changes, regenerate with:
 //   npx supabase gen types typescript --project-id <ref> > src/lib/supabase/types.ts
 
@@ -75,6 +76,11 @@ export type Apartment = {
 export type Listing = {
   id: string;
   name: string;
+  // URL slug for /listing/[slug] (supabase/migrations/0009_listing_slug.sql)
+  // — generated once at creation (src/lib/slug.ts) and left null only for
+  // rows created before that migration, until the backfill script runs
+  // (scripts/backfill-listing-slugs.mjs).
+  slug: string | null;
   category_id: string;
   description: string;
   sector: number; // references sectors.id
@@ -94,11 +100,17 @@ export type Listing = {
   updated_at: string;
 };
 
+// slug is generated separately (src/lib/slug.ts) at creation time, not
+// taken from the admin form — kept out of ListingInput the same way
+// search_text/embedding are.
 export type ListingInput = Omit<
   Listing,
-  "id" | "search_text" | "embedding" | "created_at" | "updated_at"
+  "id" | "slug" | "search_text" | "embedding" | "created_at" | "updated_at"
 >;
 
+// slug IS included (not omitted) — match_listings now returns it (see
+// supabase/migrations/0009_listing_slug.sql) so search result cards can
+// link to the listing's detail page.
 export type MatchListingsRow = Omit<
   Listing,
   "search_text" | "embedding" | "is_published" | "featured" | "created_at" | "updated_at" | "instagram"
@@ -110,6 +122,19 @@ export type ContactSubmission = {
   email: string;
   phone: string | null;
   message: string;
+  created_at: string;
+};
+
+// Click events on a listing detail page's Call/WhatsApp/Directions buttons
+// (supabase/migrations/0010_listing_click_events.sql) — anonymous, insert-
+// only from the public site; read by the admin later to show a business how
+// many enquiries their listing gets.
+export type ListingClickAction = "call" | "whatsapp" | "directions";
+
+export type ListingClickEvent = {
+  id: string;
+  listing_id: string;
+  action: ListingClickAction;
   created_at: string;
 };
 
@@ -128,6 +153,12 @@ export type Database = {
         Row: Listing;
         Insert: Partial<Listing> & Pick<Listing, "name" | "category_id" | "sector"> & { embedding?: number[] | null };
         Update: Partial<Listing> & { embedding?: number[] | null };
+        Relationships: [];
+      };
+      listing_click_events: {
+        Row: ListingClickEvent;
+        Insert: Partial<ListingClickEvent> & Pick<ListingClickEvent, "listing_id" | "action">;
+        Update: Partial<ListingClickEvent>;
         Relationships: [];
       };
       sectors: {
