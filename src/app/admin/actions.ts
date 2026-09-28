@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { embed, embedBatch } from "@/lib/voyage";
+import { buildListingSlugBase, reserveUniqueListingSlug } from "@/lib/slug";
 import type { ListingInput } from "@/lib/supabase/types";
 import { formatPhone } from "@/lib/phone";
 
@@ -41,8 +42,14 @@ export async function createListing(formData: FormData) {
   const supabase = await createClient();
 
   const embedding = await embed(await embeddingSourceText(input), "document");
+  // Generated once at creation and left alone afterwards — see src/lib/slug.ts.
+  const slug = await reserveUniqueListingSlug(
+    supabase,
+    buildListingSlugBase(input.name, input.sector),
+    new Set(),
+  );
 
-  const { error } = await supabase.from("listings").insert({ ...input, embedding });
+  const { error } = await supabase.from("listings").insert({ ...input, slug, embedding });
   if (error) throw new Error(error.message);
 
   revalidatePath("/admin");
@@ -143,15 +150,21 @@ export async function bulkCreateListings(rows: BulkRow[]): Promise<BulkUploadRes
   }
 
   const errors: BulkUploadResult["errors"] = [];
-  const valid: { row: BulkRow; category_id: string; embedSource: string }[] = [];
+  const valid: { row: BulkRow; category_id: string; embedSource: string; slug: string }[] = [];
+  // Tracks slugs claimed earlier in this same batch, alongside the DB check
+  // reserveUniqueListingSlug does — see src/lib/slug.ts.
+  const reservedSlugs = new Set<string>();
 
-  rows.forEach((row, i) => {
+  // A for-of loop rather than rows.forEach, since slug reservation needs to
+  // await a DB check per row (forEach can't await).
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     const rowNumber = i + 2; // +1 for header row, +1 for 1-indexing
     const name = (row.name || "").trim();
 
     if (!name) {
       errors.push({ row: rowNumber, name: name || "(blank)", message: "Missing name" });
-      return;
+      continue;
     }
     if (!sectorIds.has(row.sector)) {
       errors.push({
@@ -162,7 +175,7 @@ export async function bulkCreateListings(rows: BulkRow[]): Promise<BulkUploadRes
             ? `Invalid sector "${row.sector}" — must be one of ${sectorIdList.join(", ")}. Add it in Admin → Sectors first.`
             : `Invalid sector "${row.sector}" — no sectors exist yet. Add one in Admin → Sectors first.`,
       });
-      return;
+      continue;
     }
     const l1Id = l1ByKey.get((row.category || "").trim().toLowerCase());
     if (!l1Id) {
@@ -171,7 +184,7 @@ export async function bulkCreateListings(rows: BulkRow[]): Promise<BulkUploadRes
         name,
         message: `Unknown category "${row.category}"`,
       });
-      return;
+      continue;
     }
     const category_id = l2ByParentAndKey.get(
       `${l1Id}::${(row.subcategory || "").trim().toLowerCase()}`,
@@ -182,19 +195,25 @@ export async function bulkCreateListings(rows: BulkRow[]): Promise<BulkUploadRes
         name,
         message: `Unknown subcategory "${row.subcategory}" under "${row.category}"`,
       });
-      return;
+      continue;
     }
     if (!row.description || !row.description.trim()) {
       errors.push({ row: rowNumber, name, message: "Missing description" });
-      return;
+      continue;
     }
 
     const embedSource = [name, row.description, row.address, row.landmark]
       .filter(Boolean)
       .join(" ");
 
-    valid.push({ row, category_id, embedSource });
-  });
+    const slug = await reserveUniqueListingSlug(
+      supabase,
+      buildListingSlugBase(name, row.sector),
+      reservedSlugs,
+    );
+
+    valid.push({ row, category_id, embedSource, slug });
+  }
 
   if (valid.length === 0) {
     return { inserted: 0, errors };
@@ -207,6 +226,7 @@ export async function bulkCreateListings(rows: BulkRow[]): Promise<BulkUploadRes
 
   const toInsert = valid.map((v, i) => ({
     name: v.row.name.trim(),
+    slug: v.slug,
     category_id: v.category_id,
     description: v.row.description.trim(),
     sector: v.row.sector,

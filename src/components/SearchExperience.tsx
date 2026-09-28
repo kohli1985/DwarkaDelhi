@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { MatchListingsRow, Category } from "@/lib/supabase/types";
 import { formatPhone } from "@/lib/phone";
 
@@ -246,36 +247,52 @@ export default function SearchExperience({
 
             {results.length > 0 && (
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                {results.map((r) => (
-                  <div
-                    key={r.id}
-                    className="rounded-2xl border border-foreground/10 bg-foreground/[0.02] p-5"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-foreground">{r.name}</h3>
-                      {/* Similarity score stays out of the UI — it's a
-                          ranking signal for us, not something a visitor
-                          should have to interpret. Still available in
-                          server logs (see api/search/route.ts). */}
-                      <span className="shrink-0 text-xs text-foreground/50">Sector {r.sector}</span>
-                    </div>
-                    {r.category && (
-                      <span className="mt-1 inline-block text-xs font-medium text-brand-dark">
-                        {r.category.emoji} {r.category.name}
-                      </span>
-                    )}
-                    <p className="mt-2 text-sm leading-6 text-foreground/65">
-                      {r.description}
-                    </p>
-                    {(r.phone || r.address) && (
-                      <p className="mt-3 text-xs text-foreground/50">
-                        {r.address}
-                        {r.address && r.phone && " · "}
-                        {formatPhone(r.phone)}
+                {results.map((r) => {
+                  const cardClassName =
+                    "block rounded-2xl border border-foreground/10 bg-foreground/[0.02] p-5 transition-colors hover:border-brand/30";
+                  const cardContent = (
+                    <>
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-foreground">{r.name}</h3>
+                        {/* Similarity score stays out of the UI — it's a
+                            ranking signal for us, not something a visitor
+                            should have to interpret. Still available in
+                            server logs (see api/search/route.ts). */}
+                        <span className="shrink-0 text-xs text-foreground/50">Sector {r.sector}</span>
+                      </div>
+                      {r.category && (
+                        <span className="mt-1 inline-block text-xs font-medium text-brand-dark">
+                          {r.category.emoji} {r.category.name}
+                        </span>
+                      )}
+                      <p className="mt-2 text-sm leading-6 text-foreground/65">
+                        {r.description}
                       </p>
-                    )}
-                  </div>
-                ))}
+                      {(r.phone || r.address) && (
+                        <p className="mt-3 text-xs text-foreground/50">
+                          {r.address}
+                          {r.address && r.phone && " · "}
+                          {formatPhone(r.phone)}
+                        </p>
+                      )}
+                    </>
+                  );
+
+                  // Links to the listing's detail page when it has a slug —
+                  // a listing created before supabase/migrations/0009 might
+                  // not, until scripts/backfill-listing-slugs.mjs runs, so
+                  // the card falls back to a plain (unlinked) div rather
+                  // than link to a page that doesn't exist yet.
+                  return r.slug ? (
+                    <Link key={r.id} href={`/listing/${r.slug}`} className={cardClassName}>
+                      {cardContent}
+                    </Link>
+                  ) : (
+                    <div key={r.id} className={cardClassName}>
+                      {cardContent}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
