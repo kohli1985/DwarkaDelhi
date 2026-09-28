@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site";
+import AnalyticsSession from "@/components/AnalyticsSession";
 
 export const metadata: Metadata = {
   // Lets per-page metadata (e.g. src/app/listing/[slug]/page.tsx's
@@ -25,6 +26,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             events (not available on the Hobby plan). Described to
             visitors on /privacy. */}
         <Analytics />
+        {/* Sets the anonymous first-party session cookie used to dedupe
+            listing view/click events — see AnalyticsSession.tsx for why
+            this runs client-side instead of via middleware. */}
+        <AnalyticsSession />
       </body>
     </html>
   );
