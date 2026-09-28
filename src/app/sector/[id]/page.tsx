@@ -35,6 +35,14 @@ export default async function SectorPage({
   if (!sector || !(sector as Sector).is_active) notFound();
   const sectorRow = sector as Sector;
 
+  const categoryRows = (listingCatRows as { category_id: string }[]) ?? [];
+
+  // A sector with zero published listings has nothing to actually show —
+  // same "not found" treatment as an inactive sector, and it's also kept
+  // out of getActiveSectors()/the sitemap, so nothing on the site links
+  // here in the first place; this only guards a direct/stale URL.
+  if (categoryRows.length === 0) notFound();
+
   // Listings only ever store a leaf (L2) category — walk each one up to its
   // L1 parent so the tile grid shows top-level categories (same as the
   // homepage), but only the ones actually represented in this sector.
@@ -42,7 +50,7 @@ export default async function SectorPage({
   const categoryById = new Map(categoriesList.map((c) => [c.id, c]));
 
   const l1Ids = new Set<string>();
-  for (const row of (listingCatRows as { category_id: string }[]) ?? []) {
+  for (const row of categoryRows) {
     const l2 = categoryById.get(row.category_id);
     if (l2?.parent_id) l1Ids.add(l2.parent_id);
   }

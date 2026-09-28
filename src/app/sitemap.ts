@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveSectors } from "@/lib/sectors";
 import { SITE_URL } from "@/lib/site";
 
 // Covers the home page, every top-level category page, every active
@@ -11,9 +12,13 @@ import { SITE_URL } from "@/lib/site";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = await createClient();
 
-  const [{ data: categories }, { data: sectors }, { data: listings }] = await Promise.all([
+  const [{ data: categories }, sectors, { data: listings }] = await Promise.all([
     supabase.from("categories").select("slug, level").eq("level", 1),
-    supabase.from("sectors").select("id").eq("is_active", true),
+    // Reuses the same "active AND has at least one listing" filter as the
+    // sector nav (src/lib/sectors.ts) — an empty sector's page now 404s
+    // (see src/app/sector/[id]/page.tsx), so it has no business being in
+    // the sitemap either.
+    getActiveSectors(supabase),
     supabase
       .from("listings")
       .select("slug, updated_at")
@@ -33,13 +38,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  const sectorEntries: MetadataRoute.Sitemap = ((sectors as { id: number }[] | null) ?? []).map(
-    (s) => ({
-      url: `${SITE_URL}/sector/${s.id}`,
-      changeFrequency: "weekly",
-      priority: 0.8,
-    }),
-  );
+  const sectorEntries: MetadataRoute.Sitemap = sectors.map((s) => ({
+    url: `${SITE_URL}/sector/${s.id}`,
+    changeFrequency: "weekly",
+    priority: 0.8,
+  }));
 
   const listingEntries: MetadataRoute.Sitemap = (
     (listings as { slug: string; updated_at: string }[] | null) ?? []

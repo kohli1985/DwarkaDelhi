@@ -117,15 +117,15 @@ export default async function ListingPage({
               ← Back
             </Link>
 
-            <div className="mt-4 flex items-start justify-between gap-3">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
                 {listing.name}
-                {listing.featured && (
-                  <span className="ml-2 inline-block rounded-full bg-brand/10 px-2.5 py-0.5 align-middle text-xs font-semibold text-brand-dark">
-                    Featured
-                  </span>
-                )}
               </h1>
+              {listing.featured && (
+                <span className="inline-block shrink-0 rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-semibold text-brand-dark">
+                  Featured
+                </span>
+              )}
             </div>
 
             <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground/60">

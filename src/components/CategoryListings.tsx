@@ -278,14 +278,14 @@ export default function CategoryListings({
                   const cardContent = (
                     <>
                       <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-semibold text-foreground">
-                          {listing.name}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="font-semibold text-foreground">{listing.name}</h4>
                           {listing.featured && (
-                            <span className="ml-2 rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand-dark">
+                            <span className="shrink-0 rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand-dark">
                               Featured
                             </span>
                           )}
-                        </h4>
+                        </div>
                         <span className="shrink-0 text-xs text-foreground/50">
                           Sector {listing.sector}
                         </span>

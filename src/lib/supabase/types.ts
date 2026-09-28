@@ -56,8 +56,22 @@ export type Sector = {
   longitude: number | null;
 };
 
+// Sectors 4, 5, 6, 10 and 12 were the five the site originally launched
+// with (see supabase/migrations/0003_sectors.sql) and stay pinned first,
+// in that order; every sector added since (via /admin/sectors) sorts
+// after them by sector number. `sort_order` on the sectors table reflects
+// the order sectors were added in the admin bulk-add form, not the sector
+// number, so it isn't a usable sort key on its own — it's why the sector
+// nav used to show something like "4, 5, 6, 10, 12, 7, 8, 9, 18, 11…"
+// instead of ascending order.
+const PRIORITY_SECTOR_IDS = [4, 5, 6, 10, 12];
+
 export function sortSectors(sectors: Sector[]): Sector[] {
-  return [...sectors].sort((a, b) => a.sort_order - b.sort_order || a.id - b.id);
+  function priority(id: number): number {
+    const rank = PRIORITY_SECTOR_IDS.indexOf(id);
+    return rank === -1 ? Number.POSITIVE_INFINITY : rank;
+  }
+  return [...sectors].sort((a, b) => priority(a.id) - priority(b.id) || a.id - b.id);
 }
 
 // Apartments/societies within a sector — optional, admin-managed, used to
