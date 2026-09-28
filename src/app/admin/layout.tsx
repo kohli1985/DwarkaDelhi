@@ -1,6 +1,15 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { signOut } from "./actions";
 import { ToastProvider } from "@/components/Toast";
+
+// Applies to every nested /admin/* route — keeps the whole admin area out
+// of search results even though robots.ts already disallows /admin, since
+// a disallow rule alone doesn't guarantee an already-indexed page gets
+// dropped; noindex is the actual instruction for that.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -61,6 +70,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="border-b-2 border-transparent py-3 text-sm font-medium text-foreground/60 transition-colors hover:text-foreground"
           >
             Messages
+          </Link>
+          <Link
+            href="/admin/stats"
+            className="border-b-2 border-transparent py-3 text-sm font-medium text-foreground/60 transition-colors hover:text-foreground"
+          >
+            Stats
           </Link>
         </nav>
       </div>

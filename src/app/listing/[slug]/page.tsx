@@ -1,12 +1,17 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { after } from "next/server";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Breadcrumbs from "@/components/Breadcrumbs";
 import ListingActionButtons from "@/components/ListingActionButtons";
 import { getListingBySlug } from "@/lib/listings";
 import { formatPhone, telHref, whatsAppNumber } from "@/lib/phone";
 import { SITE_URL } from "@/lib/site";
+import { buildBreadcrumbJsonLd } from "@/lib/jsonld";
+import { localBusinessType } from "@/lib/schemaType";
+import { trackListingEvent } from "@/app/listing/actions";
 
 // Rendered on the server on every request (same as /category/[slug] and
 // /sector/[id] — see src/lib/sectors.ts's getActiveSectors comment for why
@@ -35,6 +40,7 @@ export async function generateMetadata({
     description,
     alternates: { canonical },
     openGraph: { title, description, url: canonical, siteName: "DelhiDwarka" },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
@@ -68,7 +74,10 @@ function buildJsonLd(
 
   return {
     "@context": "https://schema.org",
-    "@type": "LocalBusiness",
+    // Most specific schema.org subtype we can infer from the listing's
+    // subcategory (src/lib/schemaType.ts) — falls back to the generic
+    // "LocalBusiness" for a subcategory with no confident mapping.
+    "@type": localBusinessType(listing.category?.name),
     name: listing.name,
     url: canonicalUrl,
     ...(listing.description.trim() ? { description: listing.description.trim() } : {}),
@@ -87,6 +96,10 @@ export default async function ListingPage({
   const listing = await getListingBySlug(slug);
   if (!listing) notFound();
 
+  // Logged after the response is sent (next/server's after()) so it never
+  // adds latency to the page itself — see src/app/listing/actions.ts.
+  after(() => trackListingEvent(listing.id, "view", "listing_detail"));
+
   const canonicalUrl = `${SITE_URL}/listing/${listing.slug}`;
   const formattedPhone = formatPhone(listing.phone);
   const callHref = telHref(listing.phone);
@@ -100,19 +113,32 @@ export default async function ListingPage({
       )}`
     : null;
 
+  const sectorName = listing.sectorInfo?.name ?? `Sector ${listing.sector}`;
+  const breadcrumbItems = [
+    { name: "Home", href: "/" },
+    ...(listing.topCategory ? [{ name: listing.topCategory.name, href: `/category/${listing.topCategory.slug}` }] : []),
+    { name: listing.name },
+  ];
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(buildJsonLd(listing, canonicalUrl)) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildBreadcrumbJsonLd(breadcrumbItems)) }}
+      />
       <Header />
       <main className="flex-1">
         <section className="py-10 sm:py-16">
           <div className="mx-auto max-w-2xl px-5 sm:px-8">
+            <Breadcrumbs items={breadcrumbItems} />
+
             <Link
               href={listing.topCategory ? `/category/${listing.topCategory.slug}` : "/"}
-              className="text-sm font-medium text-foreground/50 hover:text-foreground"
+              className="mt-3 inline-block text-sm font-medium text-foreground/50 hover:text-foreground"
             >
               ← Back
             </Link>
@@ -139,7 +165,7 @@ export default async function ListingPage({
               )}
               {listing.category && <span aria-hidden="true">·</span>}
               <Link href={`/sector/${listing.sector}`} className="hover:underline">
-                {listing.sectorInfo?.name ?? `Sector ${listing.sector}`}
+                {sectorName}
               </Link>
             </div>
 
@@ -179,6 +205,22 @@ export default async function ListingPage({
                 directionsHref={directionsHref}
               />
             </div>
+
+            {listing.topCategory && (
+              <div className="mt-10 flex flex-col gap-1.5 border-t border-foreground/10 pt-6 text-sm">
+                {listing.category && (
+                  <Link
+                    href={`/category/${listing.topCategory.slug}/sector/${listing.sector}?sub=${listing.category.id}`}
+                    className="font-medium text-brand-dark hover:underline"
+                  >
+                    More {listing.category.name} in {sectorName} →
+                  </Link>
+                )}
+                <Link href={`/sector/${listing.sector}`} className="font-medium text-brand-dark hover:underline">
+                  Other services in {sectorName} →
+                </Link>
+              </div>
+            )}
           </div>
         </section>
       </main>

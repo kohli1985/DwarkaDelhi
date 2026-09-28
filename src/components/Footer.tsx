@@ -1,4 +1,25 @@
-export default function Footer() {
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { getActiveSectors } from "@/lib/sectors";
+import type { Category } from "@/lib/supabase/types";
+import { sortSectors } from "@/lib/supabase/types";
+
+// Self-fetches its own data (top-level categories, non-empty sectors)
+// rather than taking props — Footer is dropped into every page as a plain
+// <Footer />, and every one of those pages already fetches its own
+// category/sector data shaped differently for its own needs, so wiring
+// the same two lists through as props everywhere would mean touching
+// every page for a footer link list. One extra small query per page load
+// is a fine trade for that.
+export default async function Footer() {
+  const supabase = await createClient();
+  const [{ data: categoriesData }, sectorsData] = await Promise.all([
+    supabase.from("categories").select("*").eq("level", 1).order("sort_order"),
+    getActiveSectors(supabase),
+  ]);
+  const categories = (categoriesData as Category[] | null) ?? [];
+  const sectors = sortSectors(sectorsData);
+
   return (
     <footer className="border-t border-foreground/10 bg-background">
       <div className="mx-auto max-w-6xl px-5 py-12 sm:px-8">
@@ -24,9 +45,56 @@ export default function Footer() {
           </a>
         </div>
 
-        <p className="mt-10 text-center text-xs text-foreground/40 sm:text-left">
-          © {new Date().getFullYear()} DelhiDwarka. Made for the Dwarka community.
-        </p>
+        {(categories.length > 0 || sectors.length > 0) && (
+          <div className="mt-10 grid gap-8 border-t border-foreground/10 pt-8 text-left sm:grid-cols-2">
+            {categories.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
+                  Categories
+                </p>
+                <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+                  {categories.map((c) => (
+                    <li key={c.id}>
+                      <Link
+                        href={`/category/${c.slug}`}
+                        className="text-sm text-foreground/60 hover:text-foreground hover:underline"
+                      >
+                        {c.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {sectors.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground/40">
+                  Sectors
+                </p>
+                <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+                  {sectors.map((s) => (
+                    <li key={s.id}>
+                      <Link
+                        href={`/sector/${s.id}`}
+                        className="text-sm text-foreground/60 hover:text-foreground hover:underline"
+                      >
+                        {s.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-10 flex flex-col items-center justify-between gap-3 text-xs text-foreground/40 sm:flex-row">
+          <p>© {new Date().getFullYear()} DelhiDwarka. Made for the Dwarka community.</p>
+          <Link href="/privacy" className="hover:text-foreground/70 hover:underline">
+            Privacy
+          </Link>
+        </div>
       </div>
     </footer>
   );

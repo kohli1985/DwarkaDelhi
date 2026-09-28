@@ -143,12 +143,34 @@ export type ContactSubmission = {
 // (supabase/migrations/0010_listing_click_events.sql) — anonymous, insert-
 // only from the public site; read by the admin later to show a business how
 // many enquiries their listing gets.
-export type ListingClickAction = "call" | "whatsapp" | "directions";
+// "view" added alongside call/whatsapp/directions by
+// supabase/migrations/0012_extend_listing_events.sql (proposed, awaiting
+// approval — see that file) — a page view logged from
+// src/app/listing/[slug]/page.tsx the same way a button click is.
+export type ListingClickAction = "view" | "call" | "whatsapp" | "directions";
 
 export type ListingClickEvent = {
   id: string;
   listing_id: string;
   action: ListingClickAction;
+  // Both added by 0012_extend_listing_events.sql — null on rows written
+  // before that migration runs.
+  source_page: string | null;
+  session_id: string | null;
+  created_at: string;
+};
+
+// Anonymous search-query log (supabase/migrations/0013_search_logs.sql,
+// proposed, awaiting approval) — written by src/app/api/search/route.ts
+// after every search, read by the admin stats page. No IPs, no user
+// agents, no identifiers.
+export type SearchLog = {
+  id: string;
+  query: string;
+  sector_filter: number | null;
+  result_count: number;
+  top_score: number | null;
+  zero_results: boolean;
   created_at: string;
 };
 
@@ -191,6 +213,12 @@ export type Database = {
         Row: ContactSubmission;
         Insert: Partial<ContactSubmission> & Pick<ContactSubmission, "name" | "email" | "message">;
         Update: Partial<ContactSubmission>;
+        Relationships: [];
+      };
+      search_logs: {
+        Row: SearchLog;
+        Insert: Partial<SearchLog> & Pick<SearchLog, "query">;
+        Update: Partial<SearchLog>;
         Relationships: [];
       };
     };

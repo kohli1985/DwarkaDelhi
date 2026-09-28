@@ -1,9 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { embed } from "@/lib/voyage";
 import { interpretQuery, summarizeResults, findExternalMatches, type ExternalMatch } from "@/lib/anthropic";
 import { distanceKm } from "@/lib/geo";
 import { findApartmentSector } from "@/lib/apartments";
+import { isLikelyBot } from "@/lib/analytics";
 import type { Category, MatchListingsRow, Sector } from "@/lib/supabase/types";
 
 // Below this cosine similarity, a result is treated as "not actually a
@@ -20,6 +22,43 @@ import type { Category, MatchListingsRow, Sector } from "@/lib/supabase/types";
 // (once one exists) starts getting excluded, lower this; if unrelated
 // results still slip through above 0.55, raise it further.
 const MIN_SIMILARITY = 0.55;
+
+// Best-effort, fire-and-forget logging of a search query for the admin
+// stats page (/admin/stats) — never awaited inline and always scheduled
+// via next/server's after() so it can't add latency to the search
+// response. No IPs, no user agents, no identifiers, just the query text,
+// the sector filter actually applied, and the outcome. Writes go through
+// the "anyone can log a search" RLS policy in
+// supabase/migrations/0013_search_logs.sql — until that migration is
+// approved and run, this insert fails (caught and logged, never thrown).
+async function logSearch(params: {
+  query: string;
+  sectorFilter: number | null;
+  resultCount: number;
+  topScore: number | null;
+  zeroResults: boolean;
+}) {
+  try {
+    const headerList = await headers();
+    if (isLikelyBot(headerList.get("user-agent"))) return;
+
+    const supabase = await createClient();
+    const { error } = await supabase.from("search_logs").insert({
+      query: params.query,
+      sector_filter: params.sectorFilter,
+      result_count: params.resultCount,
+      top_score: params.topScore,
+      zero_results: params.zeroResults,
+    });
+
+    if (error) {
+      // Expected until 0013_search_logs.sql is approved and run.
+      console.error("logSearch failed:", error.message);
+    }
+  } catch (err) {
+    console.error("logSearch failed:", err);
+  }
+}
 
 // POST /api/search — natural-language search over listings.
 //
@@ -195,6 +234,16 @@ export async function POST(request: Request) {
     } else {
       answer = `No matches yet for "${query}" — the directory is still growing.`;
     }
+
+    after(() =>
+      logSearch({
+        query,
+        sectorFilter: effectiveSector,
+        resultCount: enriched.length,
+        topScore: allRows[0]?.similarity ?? null,
+        zeroResults: enriched.length === 0,
+      }),
+    );
 
     return NextResponse.json({ answer, results: enriched, externalResults, interpretation });
   } catch (err) {
