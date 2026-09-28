@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -13,6 +13,23 @@ type Props = {
   sectors: Sector[];
   initialSectorId: number | null;
   initialSubId: string | null;
+  // Server-rendered listings matching the initial filter state (see the
+  // page component) — this is what makes listing names show up in the raw
+  // HTML for crawlers instead of only appearing after the client fetch
+  // below runs. The client fetch still runs for every filter/sort change
+  // after that; only the very first render skips it and uses this instead.
+  initialListings: Listing[];
+  // Fixed sector this page is scoped to, e.g. /category/[slug]/sector/[id]
+  // — hides the sector filter UI entirely rather than letting a visitor
+  // filter their way out of the URL they're on (the plain /category/[slug]
+  // page still shows the full sector filter).
+  lockedSectorId?: number | null;
+  // Overrides the default "🩺 Category name" heading — used by the
+  // /category/[slug]/sector/[id] combo page, which needs its own
+  // "Category in Dwarka Sector N" H1 (there must be exactly one H1 per
+  // page) plus a one-line generated intro, instead of this component's
+  // plain-category heading and back-home link.
+  heading?: { title: string; intro?: string };
 };
 
 // The dedicated listing page for one L1 category (/category/[slug]) — a
@@ -28,6 +45,9 @@ export default function CategoryListings({
   sectors,
   initialSectorId,
   initialSubId,
+  initialListings,
+  lockedSectorId = null,
+  heading,
 }: Props) {
   const router = useRouter();
   const [subIds, setSubIds] = useState<Set<string>>(
@@ -40,9 +60,14 @@ export default function CategoryListings({
   // Filters default collapsed on mobile (sm:hidden toggle below) — on
   // desktop the sidebar is always visible regardless of this, via sm:block.
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [listings, setListings] = useState<Listing[]>(initialListings);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The effect below fires on mount too (its dep array always changes from
+  // "nothing yet" to the initial filter state) — skip that first run since
+  // initialListings already matches it; only actual filter/sort changes
+  // after that should trigger a client refetch.
+  const isFirstRender = useRef(true);
 
   function toggleSub(id: string) {
     setSubIds((prev) => {
@@ -108,25 +133,42 @@ export default function CategoryListings({
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: refetching listings for the active filters is the whole point of this effect
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     fetchListings(subIds, sectorIds, sortDir);
     updateUrl(subIds, sectorIds);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch only when a filter or sort actually changes; re-created Sets each render so compare by content, not identity
   }, [Array.from(subIds).sort().join(","), Array.from(sectorIds).sort().join(","), sortDir]);
 
-  const activeFilterCount = subIds.size + sectorIds.size;
+  // When locked to one sector (the /category/[slug]/sector/[id] combo
+  // page), that sector isn't a "filter" a visitor can see or clear — only
+  // the subcategory checkboxes count as active filters there.
+  const activeFilterCount = subIds.size + (lockedSectorId === null ? sectorIds.size : 0);
 
   return (
     <section className="py-16 sm:py-20">
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
-        <Link href="/" className="text-sm font-medium text-foreground/50 hover:text-foreground">
-          ← Back home
-        </Link>
+        {heading ? (
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              {heading.title}
+            </h1>
+            {heading.intro && <p className="mt-1 text-sm text-foreground/60">{heading.intro}</p>}
+          </div>
+        ) : (
+          <>
+            <Link href="/" className="text-sm font-medium text-foreground/50 hover:text-foreground">
+              ← Back home
+            </Link>
 
-        <div className="mt-4 flex items-center gap-3">
-          <span className="text-4xl">{category.emoji}</span>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">{category.name}</h1>
-        </div>
+            <div className="mt-4 flex items-center gap-3">
+              <span className="text-4xl">{category.emoji}</span>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">{category.name}</h1>
+            </div>
+          </>
+        )}
 
         <div className="mt-8 flex flex-col gap-8 sm:flex-row sm:items-start">
           {/* Filter rail — a sidebar on wider screens; on mobile it's
@@ -169,7 +211,7 @@ export default function CategoryListings({
                     type="button"
                     onClick={() => {
                       setSubIds(new Set());
-                      setSectorIds(new Set());
+                      if (lockedSectorId === null) setSectorIds(new Set());
                     }}
                     className="text-xs font-medium text-brand-dark hover:underline"
                   >
@@ -196,7 +238,7 @@ export default function CategoryListings({
                 </div>
               )}
 
-              {sectors.length > 0 && (
+              {lockedSectorId === null && sectors.length > 0 && (
                 <div className="mt-6">
                   <p className="mb-2 text-xs font-semibold text-foreground/40">
                     Sector {sectorIds.size > 0 && `(${sectorIds.size})`}

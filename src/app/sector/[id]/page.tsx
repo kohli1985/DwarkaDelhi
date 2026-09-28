@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Breadcrumbs from "@/components/Breadcrumbs";
 import SearchExperience from "@/components/SearchExperience";
 import SectorCircles from "@/components/SectorCircles";
 import CategoryGrid from "@/components/CategoryGrid";
@@ -8,6 +10,35 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveSectors } from "@/lib/sectors";
 import type { Category, Sector } from "@/lib/supabase/types";
 import { sortSectors } from "@/lib/supabase/types";
+import { SITE_URL } from "@/lib/site";
+import { buildBreadcrumbJsonLd } from "@/lib/jsonld";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const sectorId = Number(id);
+  if (!Number.isInteger(sectorId)) return {};
+
+  const supabase = await createClient();
+  const { data: sector } = await supabase.from("sectors").select("*").eq("id", sectorId).maybeSingle();
+  if (!sector) return {};
+
+  const sectorName = (sector as Sector).name;
+  const title = `Shops & Services in Dwarka ${sectorName} | DelhiDwarka`;
+  const description = `Browse local shops, clinics and services in Dwarka ${sectorName}, Delhi — phone numbers, addresses and directions on DelhiDwarka.`;
+  const canonical = `${SITE_URL}/sector/${sectorId}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: { title, description, url: canonical, siteName: "DelhiDwarka" },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 export default async function SectorPage({
   params,
@@ -56,13 +87,22 @@ export default async function SectorPage({
   }
   const applicableCategories = categoriesList.filter((c) => l1Ids.has(c.id));
 
+  const breadcrumbItems = [{ name: "Home", href: "/" }, { name: sectorRow.name }];
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildBreadcrumbJsonLd(breadcrumbItems)) }}
+      />
       <Header />
       <main className="flex-1">
         <section className="bg-background pb-2 pt-12 sm:pt-16">
           <div className="mx-auto max-w-3xl px-5 text-center sm:px-8">
-            <span className="text-sm font-semibold uppercase tracking-wide text-brand">
+            <div className="flex justify-center">
+              <Breadcrumbs items={breadcrumbItems} />
+            </div>
+            <span className="mt-3 block text-sm font-semibold uppercase tracking-wide text-brand">
               Sector
             </span>
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">

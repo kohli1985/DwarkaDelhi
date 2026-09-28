@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site";
 
@@ -14,9 +15,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className="h-full antialiased">
+    // en-IN rather than plain en — the site, its content (Dwarka, Delhi
+    // sector numbers, Indian phone formatting) and its audience are all
+    // India-specific.
+    <html lang="en-IN" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
+        {/* Vercel Web Analytics — cookieless page-view tracking, no custom
+            events (not available on the Hobby plan). Described to
+            visitors on /privacy. */}
+        <Analytics />
       </body>
     </html>
   );
