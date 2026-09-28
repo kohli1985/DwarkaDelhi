@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { embed, embedBatch } from "@/lib/voyage";
 import type { ListingInput } from "@/lib/supabase/types";
+import { formatPhone } from "@/lib/phone";
 
 function readListingInput(formData: FormData): ListingInput {
   return {
@@ -18,7 +19,7 @@ function readListingInput(formData: FormData): ListingInput {
     sector: Number(formData.get("sector")),
     address: (formData.get("address") as string) || null,
     landmark: (formData.get("landmark") as string) || null,
-    phone: (formData.get("phone") as string) || null,
+    phone: formatPhone(formData.get("phone") as string),
     whatsapp: (formData.get("whatsapp") as string) || null,
     website: (formData.get("website") as string) || null,
     instagram: (formData.get("instagram") as string) || null,
@@ -211,7 +212,7 @@ export async function bulkCreateListings(rows: BulkRow[]): Promise<BulkUploadRes
     sector: v.row.sector,
     address: v.row.address || null,
     landmark: v.row.landmark || null,
-    phone: v.row.phone || null,
+    phone: formatPhone(v.row.phone),
     whatsapp: v.row.whatsapp || null,
     website: v.row.website || null,
     instagram: v.row.instagram || null,

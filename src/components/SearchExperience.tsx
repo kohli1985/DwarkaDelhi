@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { MatchListingsRow, Category } from "@/lib/supabase/types";
+import { formatPhone } from "@/lib/phone";
 
 type SearchResult = MatchListingsRow & { category: Category | null };
 
@@ -234,6 +235,15 @@ export default function SearchExperience({
               </button>
             </div>
 
+            {results.length === 0 && (
+              <p className="mt-3 text-sm text-foreground/60">
+                Know a good one?{" "}
+                <a href="#contact" className="font-medium text-brand-dark hover:underline">
+                  Suggest it
+                </a>
+              </p>
+            )}
+
             {results.length > 0 && (
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 {results.map((r) => (
@@ -243,14 +253,11 @@ export default function SearchExperience({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="font-semibold text-foreground">{r.name}</h3>
-                      <span className="flex shrink-0 flex-col items-end gap-0.5 text-xs text-foreground/50">
-                        <span>Sector {r.sector}</span>
-                        {/* Temporary debug badge while tuning MIN_SIMILARITY in
-                            api/search/route.ts — remove once the threshold is settled. */}
-                        <span className="font-mono text-[10px] text-foreground/35">
-                          {Math.round(r.similarity * 100)}% match
-                        </span>
-                      </span>
+                      {/* Similarity score stays out of the UI — it's a
+                          ranking signal for us, not something a visitor
+                          should have to interpret. Still available in
+                          server logs (see api/search/route.ts). */}
+                      <span className="shrink-0 text-xs text-foreground/50">Sector {r.sector}</span>
                     </div>
                     {r.category && (
                       <span className="mt-1 inline-block text-xs font-medium text-brand-dark">
@@ -264,7 +271,7 @@ export default function SearchExperience({
                       <p className="mt-3 text-xs text-foreground/50">
                         {r.address}
                         {r.address && r.phone && " · "}
-                        {r.phone}
+                        {formatPhone(r.phone)}
                       </p>
                     )}
                   </div>

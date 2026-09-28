@@ -5,6 +5,7 @@ import SearchExperience from "@/components/SearchExperience";
 import SectorCircles from "@/components/SectorCircles";
 import CategoryGrid from "@/components/CategoryGrid";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveSectors } from "@/lib/sectors";
 import type { Category, Sector } from "@/lib/supabase/types";
 import { sortSectors } from "@/lib/supabase/types";
 
@@ -19,12 +20,10 @@ export default async function SectorPage({
 
   const supabase = await createClient();
 
-  const [{ data: sector }, { data: sectorsData }, { data: listingCatRows }, { data: allCategories }] =
+  const [{ data: sector }, sectorsData, { data: listingCatRows }, { data: allCategories }] =
     await Promise.all([
       supabase.from("sectors").select("*").eq("id", sectorId).maybeSingle(),
-      // Explicit is_active filter, not just RLS — see the comment in
-      // src/app/page.tsx for why this matters when the viewer is signed in.
-      supabase.from("sectors").select("*").eq("is_active", true),
+      getActiveSectors(supabase),
       supabase.from("listings").select("category_id").eq("sector", sectorId).eq("is_published", true),
       supabase.from("categories").select("*"),
     ]);

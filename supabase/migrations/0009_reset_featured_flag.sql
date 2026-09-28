@@ -1,0 +1,32 @@
+-- ITEM 2 (2026-09 data-quality pass) — "Featured" badge shows on nearly
+-- every listing (29/29 in Healthcare, for example).
+--
+-- Root cause: NOT a bug in how new listings are created. The schema
+-- (0001_init.sql) already defaults featured to false, the single-listing
+-- admin form (ListingForm.tsx) already defaults its checkbox to false, and
+-- the CSV bulk-import path (admin/listings/bulk/page.tsx's parseBool)
+-- already defaults an absent/blank "featured" column to false. So the
+-- near-100% featured rate in the live data has to be existing bad data —
+-- most likely an early CSV import where the "featured" column was
+-- populated with a truthy value for every row (or the column was present
+-- but misread) before the code paths above were in place/verified.
+--
+-- NOT RUN AUTOMATICALLY. Per instruction: this migration is for review
+-- only — run it yourself from the Supabase SQL editor after checking the
+-- count below, at your own discretion.
+
+-- 1. Check the current scope first:
+--      select count(*) from listings where featured = true;
+--      select count(*) from listings; -- for context, total row count
+--
+--    Also useful, to see it's not just Healthcare:
+--      select c.name, count(*) from listings l
+--        join categories c on c.id = l.category_id
+--        where l.featured = true
+--        group by c.name order by count(*) desc;
+
+-- 2. Once you've reviewed the count and are satisfied a reset is right,
+--    run this to make featured opt-in again (nothing stays "featured"
+--    unless you re-mark it deliberately afterwards from /admin/listings):
+--
+--      update listings set featured = false where featured = true;
